@@ -1,0 +1,63 @@
+{{/*
+  Partial: related-projects.html
+  Purpose: Display up to 3 related project items on a project single page.
+  Usage: {{ partial "related-projects.html" . }}
+  Strategy: find pages in "project" section that share tags with current page;
+            fallback to latest projects when none found.
+*/}}
+
+{{ $max := 3 }}
+{{ $current := . }}
+{{ $related := slice }}
+
+{{ with .Params.tags }}
+  {{ range $tag := . }}
+    {{ $matches := where (where site.RegularPages "Section" "project") "Params.tags" "intersect" (slice $tag) }}
+    {{ range $p := $matches }}
+      {{ if ne $p.RelPermalink $current.RelPermalink }}
+        {{ $related = $related | append $p }}
+      {{ end }}
+    {{ end }}
+  {{ end }}
+{{ end }}
+
+{{/* Deduplicate while preserving order */}}
+{{ $seen := dict }}
+{{ $uniq := slice }}
+{{ range $p := $related }}
+  {{ if not (in $seen $p.RelPermalink) }}
+    {{ $seen = merge $seen (dict $p.RelPermalink true) }}
+    {{ $uniq = $uniq | append $p }}
+  {{ end }}
+{{ end }}
+
+{{ if lt (len $uniq) $max }}
+  {{ $needed := sub $max (len $uniq) }}
+  {{ $fallback := where (where site.RegularPages "Section" "project") "Permalink" "ne" $current.Permalink | first $needed }}
+  {{ range $p := $fallback }}
+    {{ $uniq = $uniq | append $p }}
+  {{ end }}
+{{ end }}
+
+{{ if gt (len $uniq) 0 }}
+<aside class="related-projects">
+  <h3>Related Projects</h3>
+  <div class="related-list">
+    {{ range first $max $uniq }}
+      <article class="related-item">
+        <a href="{{ .RelPermalink }}" class="related-link">
+          {{ with .Params.thumbnail }}
+            <img src="{{ . }}" alt="{{ .Title }} thumbnail" class="related-thumb" />
+          {{ else if .Params.images }}
+            <img src="{{ index .Params.images 0 }}" alt="{{ .Title }} thumbnail" class="related-thumb" />
+          {{ end }}
+          <div class="related-meta">
+            <h4 class="related-title">{{ .Title }}</h4>
+            {{ with .Date }}<time datetime="{{ .Format "2006-01-02" }}">{{ .Format "Jan 2, 2006" }}</time>{{ end }}
+          </div>
+        </a>
+      </article>
+    {{ end }}
+  </div>
+</aside>
+{{ end }}
